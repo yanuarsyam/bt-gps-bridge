@@ -172,6 +172,12 @@ class MainActivity : AppCompatActivity() {
         } else {
             registerReceiver(receiver, filter)
         }
+
+        // Minta status terbaru ke Service setiap kali layar terbuka
+        val syncIntent = Intent(this, GpsBridgeService::class.java).apply {
+            action = GpsBridgeService.ACTION_REQUEST_SYNC
+        }
+        startService(syncIntent)
     }
 
     override fun onPause() {

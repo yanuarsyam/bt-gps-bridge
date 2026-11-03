@@ -33,6 +33,7 @@ class GpsBridgeService : Service() {
         const val ACTION_LOCATION_UPDATE = "com.yanuarsyam.btgpsbridge.LOCATION_UPDATE"
         const val ACTION_TOGGLE_RECORD = "com.yanuarsyam.btgpsbridge.TOGGLE_RECORD"
         const val ACTION_RECORD_STATUS = "com.yanuarsyam.btgpsbridge.RECORD_STATUS"
+        const val ACTION_REQUEST_SYNC = "com.yanuarsyam.btgpsbridge.REQUEST_SYNC"
         private val SPP_UUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
         private const val CHANNEL_ID = "gps_bridge_channel"
         private const val NOTIF_ID = 1001
@@ -42,6 +43,8 @@ class GpsBridgeService : Service() {
     private var isRunning = false
     private lateinit var locationManager: LocationManager
     private var targetDeviceAddress: String? = null
+    private var lastBadgeState = "DISCONNECTED"
+    private var lastDetailMessage = "Siap menghubungkan perangkat..."
 
     // Logger GPX
     private var isRecording = false
@@ -59,9 +62,16 @@ class GpsBridgeService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_TOGGLE_RECORD) {
-            handleRecordingToggle()
-            return START_STICKY
+        when (intent?.action) {
+            ACTION_TOGGLE_RECORD -> {
+                handleRecordingToggle()
+                return START_STICKY
+            }
+            ACTION_REQUEST_SYNC -> {
+                broadcastState(lastBadgeState, lastDetailMessage)
+                broadcastLogState(isRecording, if (isRecording) "Merekam: $recordedCount titik" else "Siap merekam trek perjalanan ke berkas .GPX")
+                return START_STICKY
+            }
         }
 
         val address = intent?.getStringExtra(EXTRA_DEVICE_ADDRESS)
@@ -246,6 +256,8 @@ class GpsBridgeService : Service() {
     }
 
     private fun broadcastState(badgeCode: String, message: String) {
+        lastBadgeState = badgeCode
+        lastDetailMessage = message
         sendBroadcast(Intent(ACTION_STATUS_UPDATE).apply {
             setPackage(packageName)
             putExtra("badge", badgeCode)
@@ -280,6 +292,7 @@ class GpsBridgeService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         isRunning = false
+        lastBadgeState = "DISCONNECTED"
         if (isRecording) handleRecordingToggle()
         try { socket?.close() } catch (_: Exception) {}
         try { locationManager.removeTestProvider(LocationManager.GPS_PROVIDER) } catch (_: Exception) {}
